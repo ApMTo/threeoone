@@ -1,0 +1,5 @@
+# Ignore artifacts that Prettier should not format
+.next
+node_modules
+package-lock.json
+public

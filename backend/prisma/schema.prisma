@@ -13,13 +13,97 @@ enum UserRole {
   admin
 }
 
+enum ProductStatus {
+  draft
+  active
+  archived
+}
+
 model User {
-  id           String   @id @default(cuid())
-  email        String   @unique
+  id           String    @id @default(cuid())
+  email        String    @unique
   fullName     String
-  dateOfBirth  DateTime @db.Date
+  dateOfBirth  DateTime  @db.Date
   passwordHash String
-  role         UserRole @default(customer)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  role         UserRole  @default(customer)
+  addresses    Address[]
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+}
+
+model Address {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  fullName   String
+  phone      String
+  company    String?
+  line1      String
+  line2      String?
+  city       String
+  state      String?
+  postalCode String
+  country    String
+  isDefault  Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([userId])
+}
+
+model Category {
+  id          String     @id @default(cuid())
+  slug        String     @unique
+  name        String
+  description String?
+  imageUrl    String?
+  parentId    String?
+  parent      Category?  @relation("CategoryTree", fields: [parentId], references: [id], onDelete: Restrict)
+  children    Category[] @relation("CategoryTree")
+  products    Product[]
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  @@index([parentId])
+}
+
+model Product {
+  id          String         @id @default(cuid())
+  slug        String         @unique
+  name        String
+  description String         @default("")
+  price       Decimal        @db.Decimal(10, 2)
+  currency    String         @default("USD")
+  imageUrl    String?
+  status      ProductStatus  @default(active)
+  categoryId  String
+  category    Category       @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  colors      ProductColor[]
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  @@index([categoryId])
+  @@index([status])
+}
+
+model ProductColor {
+  id        String            @id @default(cuid())
+  productId String
+  product   Product           @relation(fields: [productId], references: [id], onDelete: Cascade)
+  hex       String
+  name      String?
+  sizes     ProductColorSize[]
+
+  @@unique([productId, hex])
+}
+
+model ProductColorSize {
+  id      String       @id @default(cuid())
+  colorId String
+  color   ProductColor @relation(fields: [colorId], references: [id], onDelete: Cascade)
+  label   String
+  quantity Int         @default(0)
+
+  @@unique([colorId, label])
+  @@index([colorId])
 }

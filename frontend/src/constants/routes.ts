@@ -1,0 +1,20 @@
+export const routes = {
+  home: "/",
+  products: "/products",
+  product: (slug: string) => `/products/${slug}`,
+  cart: "/cart",
+  checkout: "/checkout",
+  orders: "/orders",
+  order: (id: string) => `/orders/${id}`,
+  account: "/account",
+  login: "/login",
+  register: "/register",
+  verifyEmail: "/verify-email",
+  checkEmail: "/check-email",
+  admin: {
+    root: "/admin",
+    products: "/admin/products",
+    orders: "/admin/orders",
+    categories: "/admin/categories",
+  },
+} as const;
