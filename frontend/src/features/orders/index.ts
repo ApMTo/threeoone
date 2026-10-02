@@ -1,1 +1,6 @@
-export { useCreateOrder, useOrder, useOrders } from "./hooks/use-orders";
+export {
+  useCreateOrder,
+  useOrder,
+  useOrders,
+  useUpdateOrderStatus,
+} from "./hooks/use-orders";

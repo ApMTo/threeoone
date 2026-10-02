@@ -1,6 +1,7 @@
 export const routes = {
   home: "/",
   products: "/products",
+  productsCategory: (slug: string) => `/products?category=${encodeURIComponent(slug)}`,
   product: (slug: string) => `/products/${slug}`,
   cart: "/cart",
   checkout: "/checkout",
@@ -9,6 +10,8 @@ export const routes = {
   account: "/account",
   login: "/login",
   register: "/register",
+  forgotPassword: "/forgot-password",
+  resetPassword: "/reset-password",
   verifyEmail: "/verify-email",
   checkEmail: "/check-email",
   admin: {

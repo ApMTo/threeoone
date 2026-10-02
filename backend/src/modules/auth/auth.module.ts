@@ -6,6 +6,7 @@ import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { RolesGuard } from './guards/roles.guard';
+import { PasswordResetService } from './password-reset.service';
 import { PendingRegistrationService } from './pending-registration.service';
 import { SessionService } from './session.service';
 import { JwtStrategy } from './strategies/jwt.strategy';
@@ -28,6 +29,7 @@ import { JwtStrategy } from './strategies/jwt.strategy';
     AuthService,
     SessionService,
     PendingRegistrationService,
+    PasswordResetService,
     JwtStrategy,
     JwtAuthGuard,
     RolesGuard,

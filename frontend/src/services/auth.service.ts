@@ -54,6 +54,24 @@ export const authService = {
     return data;
   },
 
+  async forgotPassword(email: string): Promise<{ message: string }> {
+    const { data } = await apiClient.post<{ message: string }>(
+      API_ENDPOINTS.auth.forgotPassword,
+      { email },
+      { skipAuth: true },
+    );
+    return data;
+  },
+
+  async resetPassword(token: string, password: string): Promise<{ message: string }> {
+    const { data } = await apiClient.post<{ message: string }>(
+      API_ENDPOINTS.auth.resetPassword,
+      { token, password },
+      { skipAuth: true },
+    );
+    return data;
+  },
+
   async logout(): Promise<void> {
     try {
       await apiClient.post(API_ENDPOINTS.auth.logout, undefined, { skipAuth: true });

@@ -1,1 +1,7 @@
-export { useAddresses, useCreateAddress, useProfile } from "./hooks";
+export {
+  useAddresses,
+  useChangePassword,
+  useCreateAddress,
+  useProfile,
+  useUpdateProfile,
+} from "./hooks";

@@ -4,6 +4,8 @@ export type ProductListParams = PaginationParams &
   SortParams & {
     categoryId?: string;
     search?: string;
+    status?: string;
+    includeInactive?: boolean;
   };
 
 export type OrderListParams = PaginationParams & {

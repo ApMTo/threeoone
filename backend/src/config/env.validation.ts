@@ -86,6 +86,14 @@ export class EnvironmentVariables {
   @IsEmail()
   @IsNotEmpty()
   SMTP_FROM!: string;
+
+  @IsString()
+  @IsNotEmpty()
+  STRIPE_SECRET_KEY!: string;
+
+  @IsOptional()
+  @IsString()
+  STRIPE_WEBHOOK_SECRET?: string;
 }
 
 export function validateEnv(config: Record<string, unknown>): EnvironmentVariables {
@@ -105,6 +113,25 @@ export function validateEnv(config: Record<string, unknown>): EnvironmentVariabl
       .join('; ');
 
     throw new Error(`Environment validation failed: ${messages}`);
+  }
+
+  if (
+    validatedConfig.NODE_ENV === NodeEnv.Production &&
+    !validatedConfig.STRIPE_WEBHOOK_SECRET
+  ) {
+    throw new Error(
+      'Environment validation failed: STRIPE_WEBHOOK_SECRET is required in production',
+    );
+  }
+
+  if (
+    validatedConfig.NODE_ENV === NodeEnv.Production &&
+    validatedConfig.STRIPE_SECRET_KEY.startsWith('sk_live_') &&
+    !validatedConfig.FRONTEND_URL.startsWith('https://')
+  ) {
+    throw new Error(
+      'Environment validation failed: live Stripe keys require FRONTEND_URL with https://',
+    );
   }
 
   return validatedConfig;

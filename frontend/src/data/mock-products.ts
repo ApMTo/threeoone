@@ -1,10 +1,4 @@
-export type ProductSectionItem = {
-  id: string;
-  name: string;
-  price: string;
-  imageSrc: string;
-  href: string;
-};
+import type { ProductSectionItem } from "@/components/products/product-section";
 
 const productImages = ["/product1.png", "/product2.png", "/product3.png", "/product1.png"] as const;
 

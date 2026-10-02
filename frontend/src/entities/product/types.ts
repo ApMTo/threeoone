@@ -77,3 +77,15 @@ export type CreateProductInput = {
   status?: ProductStatus;
   colors: CreateProductColorInput[];
 };
+
+export type UpdateProductInput = {
+  name?: string;
+  description?: string;
+  price?: number;
+  currency?: string;
+  imageUrl?: string | null;
+  categoryId?: string;
+  status?: ProductStatus;
+  slug?: string;
+  colors?: CreateProductColorInput[];
+};

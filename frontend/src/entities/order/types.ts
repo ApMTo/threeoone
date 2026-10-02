@@ -2,17 +2,21 @@ import type { ID, Money } from "@/types/common";
 
 export type OrderStatus =
   | "pending"
-  | "paid"
   | "processing"
   | "shipped"
   | "delivered"
-  | "cancelled"
-  | "refunded";
+  | "cancelled";
 
 export type OrderItem = {
   id: ID;
   productId: ID;
   productName: string;
+  productSlug?: string | null;
+  sizeId?: string | null;
+  sizeLabel?: string | null;
+  colorId?: string | null;
+  colorName?: string | null;
+  imageUrl?: string | null;
   quantity: number;
   unitPrice: Money;
   totalPrice: Money;
@@ -30,6 +34,12 @@ export type ShippingAddress = {
   country: string;
 };
 
+export type OrderCustomer = {
+  id: ID;
+  email: string;
+  fullName: string;
+};
+
 export type Order = {
   id: ID;
   orderNumber: string;
@@ -40,6 +50,15 @@ export type Order = {
   tax: Money;
   total: Money;
   shippingAddress: ShippingAddress;
+  customer?: OrderCustomer;
+  notes?: string | null;
+  paidAt?: string | null;
+  estimatedDelivery: string;
   createdAt: string;
   updatedAt: string;
+};
+
+export type CreateOrderResult = Order & {
+  clientSecret: string;
+  customerSessionClientSecret: string;
 };

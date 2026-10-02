@@ -1,1 +1,9 @@
-export { useConfirmEmail, useCurrentUser, useLogin, useLogout, useRegister } from "./hooks/use-auth";
+export {
+  useConfirmEmail,
+  useCurrentUser,
+  useForgotPassword,
+  useLogin,
+  useLogout,
+  useRegister,
+  useResetPassword,
+} from "./hooks/use-auth";

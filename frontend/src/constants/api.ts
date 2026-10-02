@@ -6,11 +6,14 @@ export const API_ENDPOINTS = {
     logout: "/auth/logout",
     me: "/auth/me",
     refresh: "/auth/refresh",
+    forgotPassword: "/auth/forgot-password",
+    resetPassword: "/auth/reset-password",
   },
   products: {
     root: "/products",
     byId: (id: string) => `/products/${id}`,
     bySlug: (slug: string) => `/products/slug/${slug}`,
+    archive: (id: string) => `/products/${id}/archive`,
   },
   categories: {
     root: "/categories",
@@ -25,6 +28,8 @@ export const API_ENDPOINTS = {
   orders: {
     root: "/orders",
     byId: (id: string) => `/orders/${id}`,
+    confirmPayment: (id: string) => `/orders/${id}/confirm-payment`,
+    updateStatus: (id: string) => `/admin/orders/${id}/status`,
   },
   shipping: {
     methods: "/shipping/methods",
@@ -32,6 +37,8 @@ export const API_ENDPOINTS = {
   },
   users: {
     me: "/users/me",
+    password: "/users/me/password",
     addresses: "/users/me/addresses",
   },
+  health: "/health",
 } as const;

@@ -120,6 +120,15 @@ export function LoginForm() {
             <p className="mt-1.5 text-xs text-red-600">{errors.password.message}</p>
           ) : null}
         </div>
+
+        <div className="flex justify-end">
+          <Link
+            href={routes.forgotPassword}
+            className="text-sm font-medium text-brand underline-offset-2 hover:underline"
+          >
+            Forgot password?
+          </Link>
+        </div>
       </div>
 
       <label className="mt-5 flex cursor-pointer items-center gap-2.5 text-[15px] text-zinc-800">

@@ -1,14 +1,17 @@
 "use client";
 
+import { parseISO } from "date-fns";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
+import { AccountSettings } from "@/components/account/account-settings";
 import { Button } from "@/components/ui/button";
 import { QueryState } from "@/components/ui/query-state";
 import { routes } from "@/constants/routes";
 import { useCurrentUser, useLogout } from "@/features/auth";
 import { LogoutIcon, OrdersIcon, PackageIcon } from "@/icons";
 import { formatDate } from "@/lib/utils/format";
+import { calculateAge } from "@/schemas/account.schema";
 
 export function AccountProfile() {
   const router = useRouter();
@@ -44,6 +47,12 @@ export function AccountProfile() {
                 </dd>
               </div>
               <div className="flex items-baseline justify-between gap-4">
+                <dt className="text-zinc-500">Age</dt>
+                <dd className="font-medium text-zinc-900">
+                  {calculateAge(parseISO(user.dateOfBirth))}
+                </dd>
+              </div>
+              <div className="flex items-baseline justify-between gap-4">
                 <dt className="text-zinc-500">Member since</dt>
                 <dd className="font-medium text-zinc-900">
                   {formatDate(user.createdAt)}
@@ -55,6 +64,8 @@ export function AccountProfile() {
               </div>
             </dl>
           </div>
+
+          <AccountSettings user={user} />
 
           <nav className="space-y-2" aria-label="Account links">
             <Link

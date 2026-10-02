@@ -44,6 +44,13 @@ export class RedisService {
     await this.client.set(key, value, 'EX', ttlSeconds);
   }
 
+  /** Returns true if the key was set (did not already exist). */
+  async setNx(key: string, value: string, ttlSeconds: number): Promise<boolean> {
+    await this.ensureConnected();
+    const result = await this.client.set(key, value, 'EX', ttlSeconds, 'NX');
+    return result === 'OK';
+  }
+
   async del(key: string): Promise<void> {
     await this.ensureConnected();
     await this.client.del(key);

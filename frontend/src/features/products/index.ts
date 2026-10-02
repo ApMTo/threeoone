@@ -1,1 +1,8 @@
-export { useCreateProduct, useProduct, useProductBySlug, useProducts } from "./hooks/use-products";
+export {
+  useArchiveProduct,
+  useCreateProduct,
+  useProduct,
+  useProductBySlug,
+  useProducts,
+  useUpdateProductStatus,
+} from "./hooks/use-products";

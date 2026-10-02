@@ -7,6 +7,7 @@ import {
   useEffect,
   useId,
   useMemo,
+  useRef,
   useState,
   type InputHTMLAttributes,
   type ReactNode,
@@ -15,11 +16,14 @@ import {
 import { useForm } from "react-hook-form";
 
 import { SaveAddressDialog } from "@/components/checkout/save-address-dialog";
+import { CheckoutPaymentStep } from "@/components/checkout/checkout-payment-step";
 import { siteConfig } from "@/config/site";
 import { CHECKOUT_SHIPPING_COST, US_STATES } from "@/constants/checkout";
 import { routes } from "@/constants/routes";
 import { useAddresses, useCreateAddress } from "@/features/account";
 import { useCurrentUser } from "@/features/auth";
+import { useCreateOrder } from "@/features/orders";
+import type { CreateOrderResult } from "@/entities/order";
 import { ArrowLeftIcon, SearchIcon } from "@/icons";
 import { getErrorMessage } from "@/lib/api/errors";
 import { cn } from "@/lib/utils/cn";
@@ -28,6 +32,7 @@ import {
   checkoutFormSchema,
   toShippingAddressPayload,
   type CheckoutFormInput,
+  type CreateOrderInput,
 } from "@/schemas/checkout.schema";
 import type { UserAddress } from "@/services/users.service";
 import { useCartStore } from "@/store/cart.store";
@@ -241,6 +246,7 @@ export function CheckoutForm() {
   const { data: user } = useCurrentUser();
   const { data: addresses = [], isLoading: addressesLoading } = useAddresses();
   const createAddress = useCreateAddress();
+  const createOrder = useCreateOrder();
 
   const [selectedAddressId, setSelectedAddressId] = useState<string>("new");
   const [hydrated, setHydrated] = useState(false);
@@ -250,6 +256,10 @@ export function CheckoutForm() {
   );
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [discountDraft, setDiscountDraft] = useState("");
+  const [paymentSession, setPaymentSession] = useState<CreateOrderResult | null>(
+    null,
+  );
+  const checkoutIdempotencyKeyRef = useRef<string | null>(null);
 
   const defaultAddress = useMemo(
     () => addresses.find((address) => address.isDefault) ?? addresses[0] ?? null,
@@ -328,14 +338,43 @@ export function CheckoutForm() {
   const shipping = items.length > 0 ? CHECKOUT_SHIPPING_COST : 0;
   const total = subtotal + shipping;
 
-  const finishCheckout = () => {
-    clearCart();
+  const finishCheckout = async (formValues: CheckoutFormInput) => {
+    const payload: CreateOrderInput = {
+      shippingAddress: toShippingAddressPayload(formValues),
+      shippingCost: CHECKOUT_SHIPPING_COST,
+      items: items.map((item) => ({
+        productId: item.productId,
+        sizeId: item.sizeId,
+        quantity: item.quantity,
+      })),
+    };
+
+    if (!checkoutIdempotencyKeyRef.current) {
+      checkoutIdempotencyKeyRef.current =
+        typeof crypto !== "undefined" && "randomUUID" in crypto
+          ? crypto.randomUUID()
+          : `checkout-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    }
+
+    const order = await createOrder.mutateAsync({
+      payload,
+      idempotencyKey: checkoutIdempotencyKeyRef.current,
+    });
     setSavePromptOpen(false);
     setPendingValues(null);
-    router.push(`${routes.orders}?placed=1`);
+    setPaymentSession(order);
   };
 
-  const onContinue = handleSubmit((formValues) => {
+  const handlePaymentSuccess = (orderNumber: string, orderId: string) => {
+    checkoutIdempotencyKeyRef.current = null;
+    clearCart();
+    setPaymentSession(null);
+    router.push(
+      `${routes.orders}?placed=1&order=${encodeURIComponent(orderNumber)}&id=${encodeURIComponent(orderId)}`,
+    );
+  };
+
+  const onContinue = handleSubmit(async (formValues) => {
     setSubmitError(null);
 
     if (items.length === 0) {
@@ -349,7 +388,11 @@ export function CheckoutForm() {
       return;
     }
 
-    finishCheckout();
+    try {
+      await finishCheckout(formValues);
+    } catch (error) {
+      setSubmitError(getErrorMessage(error));
+    }
   });
 
   const handleSaveAddress = async () => {
@@ -360,7 +403,18 @@ export function CheckoutForm() {
         ...toShippingAddressPayload(pendingValues),
         isDefault: true,
       });
-      finishCheckout();
+      await finishCheckout(pendingValues);
+    } catch (error) {
+      setSubmitError(getErrorMessage(error));
+      setSavePromptOpen(false);
+    }
+  };
+
+  const handleSkipSave = async () => {
+    if (!pendingValues) return;
+
+    try {
+      await finishCheckout(pendingValues);
     } catch (error) {
       setSubmitError(getErrorMessage(error));
       setSavePromptOpen(false);
@@ -379,7 +433,7 @@ export function CheckoutForm() {
   const phoneRegister = register("phone");
   const countryRegister = register("country");
 
-  if (items.length === 0 && !savePromptOpen) {
+  if (items.length === 0 && !savePromptOpen && !paymentSession) {
     return (
       <div className="mx-auto max-w-lg px-4 py-16 text-center">
         <h1 className="text-2xl font-semibold text-zinc-950">Your bag is empty</h1>
@@ -405,6 +459,20 @@ export function CheckoutForm() {
             {siteConfig.name}
           </Link>
 
+          {paymentSession ? (
+            <div className="mt-10">
+              <CheckoutPaymentStep
+                clientSecret={paymentSession.clientSecret}
+                customerSessionClientSecret={
+                  paymentSession.customerSessionClientSecret
+                }
+                orderId={paymentSession.id}
+                orderNumber={paymentSession.orderNumber}
+                total={paymentSession.total}
+                onSuccess={handlePaymentSuccess}
+              />
+            </div>
+          ) : (
           <form onSubmit={onContinue} className="mt-10 max-w-xl space-y-8" noValidate>
             <div>
               <h2 className="text-[17px] font-semibold text-zinc-950">Contact</h2>
@@ -563,13 +631,16 @@ export function CheckoutForm() {
 
               <button
                 type="submit"
-                disabled={isSubmitting || createAddress.isPending}
+                disabled={
+                  isSubmitting || createAddress.isPending || createOrder.isPending
+                }
                 className="inline-flex h-14 min-w-40 items-center justify-center rounded-xl bg-brand px-8 text-[15px] font-medium text-white transition hover:bg-brand/90 disabled:opacity-50"
               >
-                Continue
+                {createOrder.isPending ? "Preparing payment…" : "Continue to payment"}
               </button>
             </div>
           </form>
+          )}
         </section>
 
         <aside className="border-t border-zinc-200 bg-[#f5f5f5] px-4 py-8 sm:px-8 lg:border-t-0 lg:border-l lg:px-10 lg:py-10">
@@ -670,9 +741,9 @@ export function CheckoutForm() {
 
       <SaveAddressDialog
         open={savePromptOpen}
-        isSaving={createAddress.isPending}
+        isSaving={createAddress.isPending || createOrder.isPending}
         onSave={handleSaveAddress}
-        onSkip={finishCheckout}
+        onSkip={handleSkipSave}
       />
     </>
   );

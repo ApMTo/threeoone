@@ -9,7 +9,7 @@ export default function AccountPage() {
           Account
         </h1>
         <p className="mt-2 text-[15px] text-zinc-600">
-          Manage your profile and sign out of your account.
+          Manage your profile, password, and account settings.
         </p>
       </div>
 

@@ -33,7 +33,32 @@ export function toShippingAddressPayload(values: CheckoutFormInput) {
   };
 }
 
-/** @deprecated Prefer checkoutFormSchema for the storefront checkout UI */
+export const createOrderItemSchema = z.object({
+  productId: z.string().min(1),
+  sizeId: z.string().min(1),
+  quantity: z.number().int().min(1).max(99),
+});
+
+export const createOrderSchema = z.object({
+  shippingAddress: z.object({
+    fullName: z.string().min(1, "Full name is required"),
+    phone: z.string().min(5, "Phone is required"),
+    company: z.string().optional(),
+    line1: z.string().min(1, "Address is required"),
+    line2: z.string().optional(),
+    city: z.string().min(1, "City is required"),
+    state: z.string().optional(),
+    postalCode: z.string().min(1, "Postal code is required"),
+    country: z.string().min(2, "Country is required"),
+  }),
+  items: z.array(createOrderItemSchema).min(1),
+  shippingCost: z.number().min(0).optional(),
+  notes: z.string().max(500).optional(),
+});
+
+export type CreateOrderInput = z.infer<typeof createOrderSchema>;
+
+/** @deprecated Prefer checkoutFormSchema / createOrderSchema */
 export const shippingAddressSchema = z.object({
   fullName: z.string().min(1, "Full name is required"),
   phone: z.string().min(5, "Phone is required"),

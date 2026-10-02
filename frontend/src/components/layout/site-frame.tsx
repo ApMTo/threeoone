@@ -8,7 +8,13 @@ import { Footer } from "@/components/layout/footer";
 import { Header } from "@/components/layout/header";
 import { routes } from "@/constants/routes";
 
-const bareRoutes = [routes.login, routes.register, routes.admin.root] as const;
+const bareRoutes = [
+  routes.login,
+  routes.register,
+  routes.forgotPassword,
+  routes.resetPassword,
+  routes.admin.root,
+] as const;
 const checkoutRoutes = [routes.checkout] as const;
 
 export function SiteFrame({ children }: { children: ReactNode }) {

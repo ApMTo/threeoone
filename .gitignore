@@ -42,3 +42,6 @@ Thumbs.db
 
 # Docker
 docker-data/
+
+# Local tooling binaries
+backend/tools/stripe-cli/

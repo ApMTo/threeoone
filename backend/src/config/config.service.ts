@@ -66,6 +66,14 @@ export class AppConfigService {
     return this.configService.get('SMTP_FROM', { infer: true });
   }
 
+  get stripeSecretKey(): string {
+    return this.configService.get('STRIPE_SECRET_KEY', { infer: true });
+  }
+
+  get stripeWebhookSecret(): string | undefined {
+    return this.configService.get('STRIPE_WEBHOOK_SECRET', { infer: true });
+  }
+
   get isProduction(): boolean {
     return this.nodeEnv === NodeEnv.Production;
   }

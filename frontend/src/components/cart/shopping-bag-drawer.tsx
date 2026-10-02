@@ -1,20 +1,25 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
+import { useQueries } from "@tanstack/react-query";
 
 import { siteConfig } from "@/config/site";
 import { routes } from "@/constants/routes";
 import { CloseIcon } from "@/icons";
+import { queryKeys } from "@/lib/query/keys";
 import { formatMoney } from "@/lib/utils/money";
 import { cn } from "@/lib/utils/cn";
-import { useCartStore, type LocalCartItem } from "@/store/cart.store";
+import { productsService } from "@/services/products.service";
+import { buildCartLineId, useCartStore, type LocalCartItem } from "@/store/cart.store";
 import { useUiStore } from "@/store/ui.store";
 
 const FREE_SHIPPING_THRESHOLD = 100;
 
 function BagItemRow({ item }: { item: LocalCartItem }) {
   const updateQuantity = useCartStore((state) => state.updateQuantity);
+  const atStockLimit =
+    typeof item.maxQuantity === "number" && item.quantity >= item.maxQuantity;
 
   return (
     <li className="flex gap-4 border-b border-zinc-200 py-5">
@@ -46,24 +51,34 @@ function BagItemRow({ item }: { item: LocalCartItem }) {
 
         <p className="mt-1 text-[13px] text-zinc-500">Size: {item.sizeLabel}</p>
 
-        <div className="mt-auto flex items-center justify-end gap-4 pt-3 text-[15px] text-zinc-900">
-          <button
-            type="button"
-            aria-label="Decrease quantity"
-            onClick={() => updateQuantity(item.lineId, item.quantity - 1)}
-            className="inline-flex size-7 items-center justify-center transition hover:opacity-60"
-          >
-            −
-          </button>
-          <span className="min-w-4 text-center tabular-nums">{item.quantity}</span>
-          <button
-            type="button"
-            aria-label="Increase quantity"
-            onClick={() => updateQuantity(item.lineId, item.quantity + 1)}
-            className="inline-flex size-7 items-center justify-center transition hover:opacity-60"
-          >
-            +
-          </button>
+        <div className="mt-auto flex items-end justify-between gap-3 pt-3">
+          {atStockLimit ? (
+            <p className="text-[12px] leading-snug text-zinc-500">
+              Only {item.maxQuantity} in stock
+            </p>
+          ) : (
+            <span />
+          )}
+          <div className="flex items-center gap-4 text-[15px] text-zinc-900">
+            <button
+              type="button"
+              aria-label="Decrease quantity"
+              onClick={() => updateQuantity(item.lineId, item.quantity - 1)}
+              className="inline-flex size-7 items-center justify-center transition hover:opacity-60"
+            >
+              −
+            </button>
+            <span className="min-w-4 text-center tabular-nums">{item.quantity}</span>
+            <button
+              type="button"
+              aria-label="Increase quantity"
+              disabled={atStockLimit}
+              onClick={() => updateQuantity(item.lineId, item.quantity + 1)}
+              className="inline-flex size-7 items-center justify-center transition hover:opacity-60 disabled:cursor-not-allowed disabled:opacity-30"
+            >
+              +
+            </button>
+          </div>
         </div>
       </div>
     </li>
@@ -78,6 +93,49 @@ export function ShoppingBagDrawer() {
     state.items.reduce((total, item) => total + item.unitPrice.amount * item.quantity, 0),
   );
   const currency = items[0]?.unitPrice.currency ?? "USD";
+  const productIdsKey = [...new Set(items.map((item) => item.productId))].sort().join(",");
+  const productIds = useMemo(
+    () => (productIdsKey ? productIdsKey.split(",") : []),
+    [productIdsKey],
+  );
+
+  const stockQueries = useQueries({
+    queries: productIds.map((id) => ({
+      queryKey: queryKeys.products.detail(id),
+      queryFn: () => productsService.getById(id),
+      enabled: Boolean(id),
+      staleTime: 15_000,
+    })),
+  });
+
+  const stockLimitsKey = stockQueries
+    .flatMap((query) => {
+      const product = query.data;
+      if (!product) return [];
+      return product.colors.flatMap((color) =>
+        color.sizes.map(
+          (size) =>
+            `${buildCartLineId(product.id, size.id, color.id)}=${size.quantity}`,
+        ),
+      );
+    })
+    .join("|");
+
+  useEffect(() => {
+    if (!stockLimitsKey) return;
+
+    const limits: Record<string, number> = {};
+    for (const part of stockLimitsKey.split("|")) {
+      const separator = part.lastIndexOf("=");
+      if (separator <= 0) continue;
+      const lineId = part.slice(0, separator);
+      const maxQuantity = Number(part.slice(separator + 1));
+      if (!Number.isFinite(maxQuantity)) continue;
+      limits[lineId] = maxQuantity;
+    }
+
+    useCartStore.getState().applyStockLimits(limits);
+  }, [stockLimitsKey]);
 
   useEffect(() => {
     if (!isOpen) return;

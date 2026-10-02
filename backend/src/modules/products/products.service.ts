@@ -8,6 +8,7 @@ import { Prisma, ProductStatus } from '../../generated/prisma/client';
 import { normalizeHexColor, slugify } from '../../common/utils/slugify';
 import { PrismaService } from '../../database/prisma.service';
 import { CreateProductDto, ListProductsQueryDto } from './dto/create-product.dto';
+import { UpdateProductDto } from './dto/update-product.dto';
 
 export type ProductSizeResponse = {
   id: string;
@@ -150,9 +151,30 @@ export class ProductsService {
     const limit = query.limit ?? 24;
     const skip = (page - 1) * limit;
 
+    let categoryFilter: Prisma.ProductWhereInput['categoryId'];
+    if (query.categoryId) {
+      const category = await this.prisma.category.findUnique({
+        where: { id: query.categoryId },
+        include: { children: { select: { id: true } } },
+      });
+
+      if (category) {
+        const ids = category.parentId
+          ? [category.id]
+          : [category.id, ...category.children.map((child) => child.id)];
+        categoryFilter = { in: ids };
+      } else {
+        categoryFilter = query.categoryId;
+      }
+    }
+
     const where: Prisma.ProductWhereInput = {
-      ...(query.categoryId ? { categoryId: query.categoryId } : {}),
-      ...(query.status ? { status: query.status } : { status: ProductStatus.active }),
+      ...(categoryFilter ? { categoryId: categoryFilter } : {}),
+      ...(query.includeInactive
+        ? {}
+        : query.status
+          ? { status: query.status }
+          : { status: ProductStatus.active }),
       ...(query.search
         ? {
             OR: [
@@ -211,6 +233,85 @@ export class ProductsService {
     return this.toResponse(product);
   }
 
+  async update(id: string, dto: UpdateProductDto): Promise<ProductResponse> {
+    const existing = await this.prisma.product.findUnique({
+      where: { id },
+      include: { colors: true },
+    });
+
+    if (!existing) {
+      throw new NotFoundException(`Product with id "${id}" not found`);
+    }
+
+    if (dto.categoryId) {
+      const category = await this.prisma.category.findUnique({
+        where: { id: dto.categoryId },
+      });
+      if (!category) {
+        throw new NotFoundException('Category not found');
+      }
+      if (!category.parentId) {
+        throw new BadRequestException('Products must belong to a subcategory');
+      }
+    }
+
+    const colors = dto.colors ? this.normalizeColors(dto.colors) : null;
+    const nextSlug = dto.slug?.trim()
+      ? await this.ensureUniqueSlug(dto.slug.trim(), id)
+      : undefined;
+
+    try {
+      const product = await this.prisma.$transaction(async (tx) => {
+        if (colors) {
+          await tx.productColor.deleteMany({ where: { productId: id } });
+        }
+
+        return tx.product.update({
+          where: { id },
+          data: {
+            ...(dto.name !== undefined ? { name: dto.name.trim() } : {}),
+            ...(dto.description !== undefined
+              ? { description: dto.description.trim() }
+              : {}),
+            ...(dto.price !== undefined ? { price: dto.price } : {}),
+            ...(dto.currency !== undefined
+              ? { currency: dto.currency.toUpperCase() }
+              : {}),
+            ...(dto.imageUrl !== undefined
+              ? { imageUrl: dto.imageUrl?.trim() || null }
+              : {}),
+            ...(dto.categoryId !== undefined ? { categoryId: dto.categoryId } : {}),
+            ...(dto.status !== undefined ? { status: dto.status } : {}),
+            ...(nextSlug !== undefined ? { slug: nextSlug } : {}),
+            ...(colors
+              ? {
+                  colors: {
+                    create: colors.map((color) => ({
+                      hex: color.hex,
+                      name: color.name,
+                      sizes: { create: color.sizes },
+                    })),
+                  },
+                }
+              : {}),
+          },
+          include: productInclude,
+        });
+      });
+
+      return this.toResponse(product);
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+        throw new ConflictException('Product with this slug or variant already exists');
+      }
+      throw error;
+    }
+  }
+
+  async archive(id: string): Promise<ProductResponse> {
+    return this.update(id, { status: ProductStatus.archived });
+  }
+
   private normalizeColors(colors: CreateProductDto['colors']) {
     const seenHex = new Set<string>();
 
@@ -252,11 +353,19 @@ export class ProductsService {
     });
   }
 
-  private async ensureUniqueSlug(base: string): Promise<string> {
+  private async ensureUniqueSlug(base: string, excludeId?: string): Promise<string> {
     let slug = base;
     let attempt = 1;
 
-    while (await this.prisma.product.findUnique({ where: { slug }, select: { id: true } })) {
+    while (
+      await this.prisma.product.findFirst({
+        where: {
+          slug,
+          ...(excludeId ? { id: { not: excludeId } } : {}),
+        },
+        select: { id: true },
+      })
+    ) {
       attempt += 1;
       slug = `${base}-${attempt}`;
     }

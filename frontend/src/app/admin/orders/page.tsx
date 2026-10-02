@@ -1,3 +1,4 @@
+import { AdminOrderList } from "@/components/admin/admin-order-list";
 import { AdminPageHeader } from "@/components/admin/admin-page-header";
 
 export default function AdminOrdersPage() {
@@ -5,13 +6,9 @@ export default function AdminOrdersPage() {
     <>
       <AdminPageHeader
         title="Orders"
-        description="Order management will live here."
+        description="Orders from checkout with product photos. Customers see a 7–14 day delivery estimate."
       />
-      <div className="rounded-2xl border border-dashed border-brand-muted bg-white px-6 py-16 text-center">
-        <p className="text-[15px] text-zinc-500">
-          No orders module yet. This page is ready for fulfillment tools.
-        </p>
-      </div>
+      <AdminOrderList />
     </>
   );
 }

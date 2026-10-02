@@ -3,7 +3,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { queryKeys, type OrderListParams } from "@/lib/query/keys";
-import type { CheckoutInput } from "@/schemas/checkout.schema";
+import type { CreateOrderInput } from "@/schemas/checkout.schema";
+import type { OrderStatus } from "@/entities/order";
 import { ordersService } from "@/services/orders.service";
 
 export function useOrders(params: OrderListParams = {}) {
@@ -25,10 +26,29 @@ export function useCreateOrder() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (payload: CheckoutInput) => ordersService.create(payload),
+    mutationFn: ({
+      payload,
+      idempotencyKey,
+    }: {
+      payload: CreateOrderInput;
+      idempotencyKey?: string;
+    }) => ordersService.create(payload, idempotencyKey),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: queryKeys.orders.all });
       await queryClient.invalidateQueries({ queryKey: queryKeys.cart.all });
+      await queryClient.invalidateQueries({ queryKey: queryKeys.products.all });
+    },
+  });
+}
+
+export function useUpdateOrderStatus() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ id, status }: { id: string; status: OrderStatus }) =>
+      ordersService.updateStatus(id, status),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: queryKeys.orders.all });
     },
   });
 }

@@ -19,6 +19,11 @@ export type UpdateProfilePayload = {
   dateOfBirth?: string;
 };
 
+export type ChangePasswordPayload = {
+  currentPassword: string;
+  newPassword: string;
+};
+
 export const usersService = {
   async getProfile(): Promise<User> {
     const { data } = await apiClient.get<User>(API_ENDPOINTS.users.me);
@@ -28,6 +33,10 @@ export const usersService = {
   async updateProfile(payload: UpdateProfilePayload): Promise<User> {
     const { data } = await apiClient.patch<User>(API_ENDPOINTS.users.me, payload);
     return data;
+  },
+
+  async changePassword(payload: ChangePasswordPayload): Promise<void> {
+    await apiClient.post(API_ENDPOINTS.users.password, payload);
   },
 
   async listAddresses(): Promise<UserAddress[]> {

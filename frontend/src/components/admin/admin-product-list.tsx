@@ -4,11 +4,21 @@ import Link from "next/link";
 
 import { Spinner } from "@/components/ui/spinner";
 import { routes } from "@/constants/routes";
-import { useProducts } from "@/features/products";
+import {
+  useArchiveProduct,
+  useProducts,
+  useUpdateProductStatus,
+} from "@/features/products";
+import { getErrorMessage } from "@/lib/api/errors";
 import { formatMoney } from "@/lib/utils/money";
 
 export function AdminProductList() {
-  const { data, isLoading, isError } = useProducts({ limit: 50 });
+  const { data, isLoading, isError } = useProducts({
+    limit: 50,
+    includeInactive: true,
+  });
+  const archiveProduct = useArchiveProduct();
+  const updateStatus = useUpdateProductStatus();
 
   if (isLoading) {
     return <Spinner label="Loading products…" />;
@@ -60,7 +70,8 @@ export function AdminProductList() {
                 <p className="truncate font-medium text-zinc-900">{product.name}</p>
                 <p className="text-sm text-zinc-500">
                   {product.category ? product.category.name : "Uncategorized"} ·{" "}
-                  {formatMoney(product.price)} · {product.stock} in stock
+                  {formatMoney(product.price)} · {product.stock} in stock ·{" "}
+                  <span className="capitalize">{product.status}</span>
                 </p>
               </div>
             </div>
@@ -93,7 +104,36 @@ export function AdminProductList() {
               >
                 View
               </Link>
+              {product.status === "archived" ? (
+                <button
+                  type="button"
+                  disabled={updateStatus.isPending}
+                  onClick={() =>
+                    updateStatus.mutate({ id: product.id, status: "active" })
+                  }
+                  className="text-sm font-medium text-zinc-700 hover:text-brand disabled:opacity-50"
+                >
+                  Restore
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  disabled={archiveProduct.isPending}
+                  onClick={() => archiveProduct.mutate(product.id)}
+                  className="text-sm font-medium text-zinc-700 hover:text-red-600 disabled:opacity-50"
+                >
+                  Archive
+                </button>
+              )}
             </div>
+            {archiveProduct.isError || updateStatus.isError ? (
+              <p className="w-full text-xs text-red-600">
+                {getErrorMessage(
+                  archiveProduct.error ?? updateStatus.error,
+                  "Action failed",
+                )}
+              </p>
+            ) : null}
           </li>
         ))}
       </ul>

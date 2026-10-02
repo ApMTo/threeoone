@@ -8,7 +8,7 @@ import { routes } from "@/constants/routes";
 import { ArrowLeftIcon, ArrowRightIcon, CheckIcon } from "@/icons";
 import { cn } from "@/lib/utils/cn";
 import { formatMoney } from "@/lib/utils/money";
-import { useCartStore } from "@/store/cart.store";
+import { buildCartLineId, useCartStore } from "@/store/cart.store";
 import { useUiStore } from "@/store/ui.store";
 
 const BENEFITS = [
@@ -23,6 +23,7 @@ type ProductDetailProps = {
 
 export function ProductDetail({ product }: ProductDetailProps) {
   const addItem = useCartStore((state) => state.addItem);
+  const cartItems = useCartStore((state) => state.items);
   const openBag = useUiStore((state) => state.openBag);
   const [selectedColorId, setSelectedColorId] = useState<string | null>(null);
   const [selectedSizeId, setSelectedSizeId] = useState<string | null>(null);
@@ -71,14 +72,20 @@ export function ProductDetail({ product }: ProductDetailProps) {
   }, [selectedColorId, selectedSizeId]);
 
   const activeSize = availableSizes.find((size) => size.id === selectedSizeId);
-  const maxQuantity = activeSize?.quantity ?? 0;
-  const canAdd = Boolean(activeColor && activeSize && maxQuantity > 0);
+  const stockQuantity = activeSize?.quantity ?? 0;
+  const inBagQuantity = useMemo(() => {
+    if (!activeColor || !activeSize) return 0;
+    const lineId = buildCartLineId(product.id, activeSize.id, activeColor.id);
+    return cartItems.find((item) => item.lineId === lineId)?.quantity ?? 0;
+  }, [activeColor, activeSize, cartItems, product.id]);
+  const remainingQuantity = Math.max(0, stockQuantity - inBagQuantity);
+  const canAdd = Boolean(activeColor && activeSize && remainingQuantity > 0);
 
   useEffect(() => {
-    if (quantity > maxQuantity && maxQuantity > 0) {
-      setQuantity(maxQuantity);
+    if (remainingQuantity > 0 && quantity > remainingQuantity) {
+      setQuantity(remainingQuantity);
     }
-  }, [maxQuantity, quantity]);
+  }, [remainingQuantity, quantity]);
 
   const showPrev = () => {
     if (gallery.length <= 1) return;
@@ -95,8 +102,8 @@ export function ProductDetail({ product }: ProductDetailProps) {
   };
 
   const increaseQty = () => {
-    if (maxQuantity <= 0) return;
-    setQuantity((current) => Math.min(maxQuantity, current + 1));
+    if (remainingQuantity <= 0) return;
+    setQuantity((current) => Math.min(remainingQuantity, current + 1));
   };
 
   const handleAddToBag = () => {
@@ -111,7 +118,8 @@ export function ProductDetail({ product }: ProductDetailProps) {
       colorId: activeColor.id,
       colorName: activeColor.name,
       unitPrice: product.price,
-      quantity,
+      quantity: Math.min(quantity, remainingQuantity),
+      maxQuantity: stockQuantity,
       imageUrl: gallery[0] ?? product.imageUrl ?? null,
     });
     openBag();
@@ -223,6 +231,7 @@ export function ProductDetail({ product }: ProductDetailProps) {
                   <>
                     <span className="font-medium text-zinc-800">{activeSize.quantity}</span>
                     {" in stock"}
+                    {inBagQuantity > 0 ? <span>{` · ${inBagQuantity} in your bag`}</span> : null}
                     {activeSize.quantity <= 3 ? (
                       <span className="text-brand"> · low stock</span>
                     ) : null}
@@ -251,7 +260,7 @@ export function ProductDetail({ product }: ProductDetailProps) {
                 <button
                   type="button"
                   aria-label="Increase quantity"
-                  disabled={!canAdd || quantity >= maxQuantity}
+                  disabled={!canAdd || quantity >= remainingQuantity}
                   onClick={increaseQty}
                   className="flex size-11 items-center justify-center text-lg text-zinc-800 transition hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-30"
                 >

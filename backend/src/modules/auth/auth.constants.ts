@@ -7,6 +7,7 @@ export const AUTH_COOKIE = {
 export const CSRF_HEADER = 'x-csrf-token';
 
 export const PENDING_REGISTRATION_TTL_SECONDS = 60 * 60 * 24;
+export const PASSWORD_RESET_TTL_SECONDS = 60 * 60;
 
 export type SessionRecord = {
   userId: string;
@@ -33,4 +34,12 @@ export function pendingRegistrationKey(token: string): string {
 
 export function pendingEmailKey(email: string): string {
   return `pending:email:${email.toLowerCase()}`;
+}
+
+export function passwordResetKey(token: string): string {
+  return `password:reset:${token}`;
+}
+
+export function passwordResetEmailKey(email: string): string {
+  return `password:reset:email:${email.toLowerCase()}`;
 }

@@ -9,6 +9,7 @@ import {
   Res,
   UseGuards,
 } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import type { Request, Response } from 'express';
 import { AppConfigService } from '../../config/config.service';
 import { clearAuthCookies, setAuthCookies } from './auth-cookies';
@@ -16,6 +17,7 @@ import { AUTH_COOKIE, CSRF_HEADER } from './auth.constants';
 import { AuthService } from './auth.service';
 import { ConfirmEmailDto } from './dto/confirm-email.dto';
 import { LoginDto } from './dto/login.dto';
+import { ForgotPasswordDto, ResetPasswordDto } from './dto/password-reset.dto';
 import { RegisterDto } from './dto/register.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import type { AuthResponseBody, AuthUser, RegisterPendingResponse } from './types/auth.type';
@@ -28,6 +30,7 @@ export class AuthController {
   ) {}
 
   @Post('register')
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @HttpCode(HttpStatus.CREATED)
   register(@Body() dto: RegisterDto): Promise<RegisterPendingResponse> {
     return this.authService.register(dto);
@@ -50,6 +53,7 @@ export class AuthController {
   }
 
   @Post('login')
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @HttpCode(HttpStatus.OK)
   async login(
     @Body() dto: LoginDto,
@@ -63,6 +67,20 @@ export class AuthController {
       sessionId: result.sessionId,
       csrfToken: result.csrfToken,
     };
+  }
+
+  @Post('forgot-password')
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
+  @HttpCode(HttpStatus.OK)
+  forgotPassword(@Body() dto: ForgotPasswordDto): Promise<{ message: string }> {
+    return this.authService.forgotPassword(dto);
+  }
+
+  @Post('reset-password')
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
+  @HttpCode(HttpStatus.OK)
+  resetPassword(@Body() dto: ResetPasswordDto): Promise<{ message: string }> {
+    return this.authService.resetPassword(dto);
   }
 
   @Post('refresh')

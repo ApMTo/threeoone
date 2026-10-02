@@ -15,6 +15,8 @@ export type LocalCartItem = {
   colorName?: string | null;
   unitPrice: Money;
   quantity: number;
+  /** Units available for this size. Cart quantity cannot exceed it. */
+  maxQuantity?: number;
   imageUrl?: string | null;
 };
 
@@ -24,8 +26,15 @@ export function buildCartLineId(productId: string, sizeId: string, colorId?: str
 
 type CartState = {
   items: LocalCartItem[];
-  addItem: (item: Omit<LocalCartItem, "quantity" | "lineId"> & { quantity?: number }) => void;
+  addItem: (
+    item: Omit<LocalCartItem, "quantity" | "lineId" | "maxQuantity"> & {
+      quantity?: number;
+      maxQuantity: number;
+    },
+  ) => void;
   updateQuantity: (lineId: string, quantity: number) => void;
+  /** Caps each matching line to the live stock for that size. */
+  applyStockLimits: (limits: Record<string, number>) => void;
   removeItem: (lineId: string) => void;
   clear: () => void;
   itemCount: () => number;
@@ -38,23 +47,35 @@ export const useCartStore = create<CartState>()(
       items: [],
 
       addItem: (item) => {
-        const quantity = item.quantity ?? 1;
+        const requested = Math.max(1, Math.floor(item.quantity ?? 1));
+        const maxQuantity = Math.max(0, Math.floor(item.maxQuantity));
+        if (maxQuantity <= 0) return;
+
         const lineId = buildCartLineId(item.productId, item.sizeId, item.colorId);
 
         set((state) => {
           const existing = state.items.find((entry) => entry.lineId === lineId);
           if (existing) {
+            const quantity = Math.min(maxQuantity, existing.quantity + requested);
             return {
               items: state.items.map((entry) =>
                 entry.lineId === lineId
-                  ? { ...entry, quantity: entry.quantity + quantity }
+                  ? { ...entry, ...item, lineId, quantity, maxQuantity }
                   : entry,
               ),
             };
           }
 
           return {
-            items: [...state.items, { ...item, lineId, quantity }],
+            items: [
+              ...state.items,
+              {
+                ...item,
+                lineId,
+                quantity: Math.min(maxQuantity, requested),
+                maxQuantity,
+              },
+            ],
           };
         });
       },
@@ -66,10 +87,44 @@ export const useCartStore = create<CartState>()(
         }
 
         set((state) => ({
-          items: state.items.map((entry) =>
-            entry.lineId === lineId ? { ...entry, quantity } : entry,
-          ),
+          items: state.items.flatMap((entry) => {
+            if (entry.lineId !== lineId) return [entry];
+
+            const cap =
+              typeof entry.maxQuantity === "number"
+                ? Math.max(0, Math.floor(entry.maxQuantity))
+                : quantity;
+            const next = Math.min(Math.floor(quantity), cap);
+            if (next <= 0) return [];
+            return [{ ...entry, quantity: next }];
+          }),
         }));
+      },
+
+      applyStockLimits: (limits) => {
+        set((state) => {
+          let changed = false;
+
+          const items = state.items.flatMap((entry) => {
+            if (!(entry.lineId in limits)) return [entry];
+
+            const maxQuantity = Math.max(0, Math.floor(limits[entry.lineId] ?? 0));
+            const quantity = Math.min(entry.quantity, maxQuantity);
+            if (quantity <= 0) {
+              changed = true;
+              return [];
+            }
+
+            if (entry.quantity === quantity && entry.maxQuantity === maxQuantity) {
+              return [entry];
+            }
+
+            changed = true;
+            return [{ ...entry, quantity, maxQuantity }];
+          });
+
+          return changed ? { items } : state;
+        });
       },
 
       removeItem: (lineId) => {

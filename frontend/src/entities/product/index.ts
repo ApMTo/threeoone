@@ -7,4 +7,5 @@ export type {
   ProductSize,
   ProductStatus,
   ProductSummary,
+  UpdateProductInput,
 } from "./types";

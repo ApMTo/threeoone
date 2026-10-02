@@ -7,12 +7,14 @@ import {
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { Prisma } from '../../generated/prisma/client';
-import { AppConfigService } from '../../config/config.service';
 import { PrismaService } from '../../database/prisma.service';
 import { MailService } from '../../mail/mail.service';
+import { AppConfigService } from '../../config/config.service';
 import { ConfirmEmailDto } from './dto/confirm-email.dto';
 import { LoginDto } from './dto/login.dto';
+import { ForgotPasswordDto, ResetPasswordDto } from './dto/password-reset.dto';
 import { RegisterDto } from './dto/register.dto';
+import { PasswordResetService } from './password-reset.service';
 import { PendingRegistrationService } from './pending-registration.service';
 import { SessionService } from './session.service';
 import type { JwtPayload } from './types/jwt-payload.type';
@@ -25,6 +27,7 @@ export class AuthService {
     private readonly jwtService: JwtService,
     private readonly sessionService: SessionService,
     private readonly pendingRegistration: PendingRegistrationService,
+    private readonly passwordReset: PasswordResetService,
     private readonly mailService: MailService,
     private readonly config: AppConfigService,
   ) {}
@@ -104,6 +107,49 @@ export class AuthService {
     }
 
     return this.issueAuth(user);
+  }
+
+  async forgotPassword(dto: ForgotPasswordDto): Promise<{ message: string }> {
+    const email = dto.email.toLowerCase().trim();
+    const user = await this.prisma.user.findUnique({
+      where: { email },
+      select: { id: true, email: true, fullName: true },
+    });
+
+    // Always return the same message to avoid email enumeration.
+    const message = 'If an account exists for that email, we sent a reset link';
+
+    if (!user) {
+      return { message };
+    }
+
+    const token = this.passwordReset.createToken();
+    await this.passwordReset.save(token, user.email);
+    const resetUrl = this.passwordReset.buildResetUrl(token);
+    await this.mailService.sendPasswordReset(user.email, user.fullName, resetUrl);
+
+    return { message };
+  }
+
+  async resetPassword(dto: ResetPasswordDto): Promise<{ message: string }> {
+    const email = await this.passwordReset.getEmail(dto.token);
+    if (!email) {
+      throw new BadRequestException('Reset link is invalid or expired');
+    }
+
+    const passwordHash = await bcrypt.hash(dto.password, 12);
+    const updated = await this.prisma.user.updateMany({
+      where: { email },
+      data: { passwordHash },
+    });
+
+    await this.passwordReset.remove(dto.token, email);
+
+    if (updated.count === 0) {
+      throw new BadRequestException('Reset link is invalid or expired');
+    }
+
+    return { message: 'Password updated. You can sign in with your new password.' };
   }
 
   async refresh(sessionId: string | undefined, csrfToken: string | undefined): Promise<AuthResult> {

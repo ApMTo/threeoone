@@ -2,7 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-import type { CreateProductInput } from "@/entities/product";
+import type { CreateProductInput, ProductStatus } from "@/entities/product";
 import { queryKeys, type ProductListParams } from "@/lib/query/keys";
 import { productsService } from "@/services/products.service";
 
@@ -34,6 +34,29 @@ export function useCreateProduct() {
 
   return useMutation({
     mutationFn: (payload: CreateProductInput) => productsService.create(payload),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: queryKeys.products.all });
+    },
+  });
+}
+
+export function useArchiveProduct() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (id: string) => productsService.archive(id),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: queryKeys.products.all });
+    },
+  });
+}
+
+export function useUpdateProductStatus() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ id, status }: { id: string; status: ProductStatus }) =>
+      productsService.setStatus(id, status),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: queryKeys.products.all });
     },
