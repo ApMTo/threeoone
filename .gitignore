@@ -42,6 +42,14 @@ Thumbs.db
 
 # Docker
 docker-data/
+backups/
+!backups/.gitkeep
+
+# Let's Encrypt material on the VPS (never commit)
+deploy/certbot/conf/**
+!deploy/certbot/conf/.gitkeep
+deploy/certbot/www/**
+!deploy/certbot/www/.gitkeep
 
 # Local tooling binaries
 backend/tools/stripe-cli/
